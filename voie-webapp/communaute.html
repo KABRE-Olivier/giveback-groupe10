@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giveback Groupe 10 — Communauté</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .post{ background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:14px; }
+  .post-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .post-author{ font-family:Inter,sans-serif; font-size:13px; font-weight:700; color:var(--forest); }
+  .post-date{ font-family:Inter,sans-serif; font-size:11px; color:var(--ink-soft); }
+  .post-content{ font-size:14px; line-height:1.5; margin-bottom:12px; }
+  .post-actions{ display:flex; gap:16px; border-top:1px solid var(--line); padding-top:10px; flex-wrap:wrap; align-items:center; }
+  .action-btn{ background:none; border:none; font-family:Inter,sans-serif; font-size:12.5px; color:var(--ink-soft); display:flex; align-items:center; gap:5px; padding:0; }
+  .action-btn.liked{ color:#C0392B; font-weight:600; }
+  .action-btn:hover{ color:var(--forest); }
+  .reactions-row{ display:flex; gap:4px; }
+  .reaction-btn{ background:none; border:1px solid var(--line); border-radius:999px; font-size:13px; padding:3px 9px; display:flex; align-items:center; gap:4px; font-family:Inter,sans-serif; color:var(--ink-soft); }
+  .reaction-btn .rcount{ font-size:11px; }
+  .reaction-btn.active{ background:var(--gold-soft); border-color:var(--gold); color:var(--forest-deep); font-weight:600; }
+  .reaction-btn:hover{ border-color:var(--forest); }
+  .comments-zone{ margin-top:12px; display:none; }
+  .comments-zone.open{ display:block; }
+  .comment{ padding:8px 0; border-top:1px solid var(--line); font-family:Inter,sans-serif; font-size:12.5px; }
+  .comment b{ color:var(--forest); }
+  .comment-form{ display:flex; gap:8px; margin-top:10px; }
+  .comment-form input{ flex:1; border:1px solid var(--line); border-radius:6px; padding:7px 10px; font-size:12.5px; font-family:inherit; }
+  .comment-form button{ background:var(--forest); color:var(--paper); border:none; padding:7px 14px; border-radius:6px; font-size:12px; font-family:Inter,sans-serif; font-weight:600; }
+  .post-form{ background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:28px; }
+  .post-form textarea{ width:100%; min-height:70px; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-family:inherit; font-size:14px; resize:vertical; }
+  .post-form button{ margin-top:10px; }
+  .login-notice{ font-family:Inter,sans-serif; font-size:13px; color:var(--ink-soft); background:var(--gold-soft); padding:14px 16px; border-radius:10px; margin-bottom:28px; }
+  .login-notice a{ color:var(--forest); font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="ambient-layer" style="display:none"><div class="wash"></div><div id="ambientParticles"></div></div>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="https://i.postimg.cc/k5xbX766/telechargement.jpg" alt="Giveback Groupe 10" class="brand-mark">
+    <div class="brand-text">
+      <div class="brand-word">Giveback Groupe 10</div>
+      <div class="brand-tagline">Éducation, accès aux opportunités</div>
+    </div>
+  </a>
+  <nav class="sans">
+    <a href="index.html">Opportunités</a>
+    <a href="formations.html">Mini-formations</a>
+    <a href="mentors.html">Mentors</a>
+    <a href="communaute.html">Communauté</a>
+    <a href="espace.html">Mon espace</a>
+  </nav>
+</header>
+
+<section class="page-shell">
+  <div class="shell-bg"></div>
+  <div class="shell-particles" id="heroParticles"></div>
+
+  <div class="hero-content" style="padding-top:56px; padding-bottom:8px;">
+    <h1>Communauté d'entraide</h1>
+    <p class="lead">Partagez votre expérience, posez vos questions, encouragez les autres.</p>
+  </div>
+
+  <div class="wrap shell-inner" style="max-width:700px;">
+  <div id="formZone"></div>
+  <div id="posts"><p class="sans" style="color:#D9E2DD">Chargement…</p></div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabaseClient.js"></script>
+<script>
+let currentUser = null;
+let currentPrenom = "";
+let currentPays = "";
+let currentVille = "";
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  currentUser = session ? session.user : null;
+
+  const formZone = document.getElementById("formZone");
+  if (currentUser) {
+    const { data: profile } = await db.from("profiles").select("prenom, pays, ville").eq("id", currentUser.id).single();
+    currentPrenom = profile?.prenom || "Anonyme";
+    currentPays = profile?.pays || "";
+    currentVille = profile?.ville || "";
+    formZone.innerHTML = `
+      <div class="post-form">
+        <textarea id="postContent" placeholder="Partagez quelque chose avec la communauté…"></textarea>
+        <button class="btn" id="postBtn">Publier</button>
+      </div>
+    `;
+    document.getElementById("postBtn").addEventListener("click", async () => {
+      const content = document.getElementById("postContent").value.trim();
+      if (!content) return;
+      await db.from("posts").insert({
+        user_id: currentUser.id, auteur_prenom: currentPrenom, contenu: content,
+        auteur_pays: currentPays || null, auteur_ville: currentVille || null,
+      });
+      document.getElementById("postContent").value = "";
+      loadPosts();
+    });
+  } else {
+    formZone.innerHTML = `<div class="login-notice">Connectez-vous pour publier, liker ou commenter. <a href="auth.html">Se connecter →</a></div>`;
+  }
+
+  loadPosts();
+}
+
+async function loadPosts() {
+  const { data, error } = await db.from("posts").select("*").order("created_at", { ascending: false });
+  const postsDiv = document.getElementById("posts");
+  postsDiv.innerHTML = "";
+
+  if (error) {
+    postsDiv.innerHTML = `<p class="sans" style="color:var(--danger)">Erreur : ${error.message}</p>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    postsDiv.innerHTML = `<div class="empty">Aucune publication pour le moment. Soyez le premier à écrire !</div>`;
+    return;
+  }
+
+  const REACTIONS = [
+    { type: "jaime", emoji: "👍" },
+    { type: "coeur", emoji: "❤️" },
+    { type: "rire", emoji: "😂" },
+    { type: "pleurer", emoji: "😢" },
+    { type: "jenaimepas", emoji: "👎" },
+  ];
+
+  for (const p of data) {
+    const date = new Date(p.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+    const { data: allLikes } = await db.from("likes").select("type, user_id").eq("post_id", p.id);
+    const counts = {};
+    let myReaction = null;
+    (allLikes || []).forEach(l => {
+      counts[l.type] = (counts[l.type] || 0) + 1;
+      if (currentUser && l.user_id === currentUser.id) myReaction = l.type;
+    });
+
+    const { count: commentCount } = await db.from("comments").select("*", { count: "exact", head: true }).eq("post_id", p.id);
+
+    const reactionsHtml = REACTIONS.map(r => `
+      <button class="reaction-btn ${myReaction === r.type ? "active" : ""}" data-post="${p.id}" data-type="${r.type}">
+        ${r.emoji}${counts[r.type] ? `<span class="rcount">${counts[r.type]}</span>` : ""}
+      </button>
+    `).join("");
+
+    const location = [p.auteur_ville, p.auteur_pays].filter(Boolean).join(", ");
+
+    const el = document.createElement("div");
+    el.className = "post";
+    el.innerHTML = `
+      <div class="post-head">
+        <span>
+          <span class="post-author">${p.auteur_prenom || "Anonyme"}</span>
+          ${location ? `<span class="sans" style="font-size:11px; color:var(--ink-soft);"> · ${location}</span>` : ""}
+        </span>
+        <span class="post-date">${date}</span>
+      </div>
+      <div class="post-content">${p.contenu}</div>
+      <div class="post-actions">
+        <div class="reactions-row">${reactionsHtml}</div>
+        <button class="action-btn comment-toggle" data-post="${p.id}">💬 <span>${commentCount || 0} commentaire${commentCount === 1 ? "" : "s"}</span></button>
+      </div>
+      <div class="comments-zone" id="comments-${p.id}"></div>
+    `;
+    postsDiv.appendChild(el);
+  }
+
+  postsDiv.querySelectorAll(".reaction-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!currentUser) { window.location.href = "auth.html"; return; }
+      const postId = parseInt(btn.dataset.post, 10);
+      const type = btn.dataset.type;
+      const alreadyActive = btn.classList.contains("active");
+
+      if (alreadyActive) {
+        await db.from("likes").delete().eq("post_id", postId).eq("user_id", currentUser.id);
+      } else {
+        await db.from("likes").upsert(
+          { post_id: postId, user_id: currentUser.id, type },
+          { onConflict: "post_id,user_id" }
+        );
+      }
+      loadPosts();
+    });
+  });
+
+  postsDiv.querySelectorAll(".comment-toggle").forEach(btn => {
+    btn.addEventListener("click", () => openComments(parseInt(btn.dataset.post, 10)));
+  });
+}
+
+async function openComments(postId) {
+  const zone = document.getElementById("comments-" + postId);
+  const isOpen = zone.classList.contains("open");
+  if (isOpen) { zone.classList.remove("open"); return; }
+
+  zone.classList.add("open");
+  zone.innerHTML = `<p class="sans" style="color:var(--ink-soft); font-size:12px;">Chargement…</p>`;
+
+  const { data: comments } = await db.from("comments").select("*").eq("post_id", postId).order("created_at", { ascending: true });
+
+  let html = "";
+  (comments || []).forEach(c => {
+    html += `<div class="comment"><b>${c.auteur_prenom || "Anonyme"}</b> — ${c.contenu}</div>`;
+  });
+
+  if (!comments || comments.length === 0) {
+    html += `<p class="sans" style="color:var(--ink-soft); font-size:12px;">Aucun commentaire pour le moment.</p>`;
+  }
+
+  if (currentUser) {
+    html += `
+      <div class="comment-form">
+        <input type="text" id="commentInput-${postId}" placeholder="Écrire un commentaire…">
+        <button data-post="${postId}" class="send-comment">Envoyer</button>
+      </div>
+    `;
+  }
+
+  zone.innerHTML = html;
+
+  if (currentUser) {
+    zone.querySelector(".send-comment").addEventListener("click", async () => {
+      const input = document.getElementById("commentInput-" + postId);
+      const content = input.value.trim();
+      if (!content) return;
+      await db.from("comments").insert({ post_id: postId, user_id: currentUser.id, auteur_prenom: currentPrenom, contenu: content });
+      await loadPosts();
+      openComments(postId);
+    });
+  }
+}
+
+init();
+</script>
+<script>
+(function () {
+  const zone = document.getElementById("heroParticles");
+  if (!zone) return;
+  const n = 26;
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement("span");
+    const size = 3 + Math.random() * 5;
+    dot.style.width = size + "px";
+    dot.style.height = size + "px";
+    dot.style.left = Math.random() * 100 + "%";
+    dot.style.top = Math.random() * 100 + "%";
+    dot.style.animationDuration = (5 + Math.random() * 6) + "s";
+    dot.style.animationDelay = (Math.random() * 6) + "s";
+    zone.appendChild(dot);
+  }
+})();
+</script>
+</body>
+</html>

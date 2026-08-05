@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giveback Groupe 10 — Mon espace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="ambient-layer" style="display:none"><div class="wash"></div><div id="ambientParticles"></div></div>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="https://i.postimg.cc/k5xbX766/telechargement.jpg" alt="Giveback Groupe 10" class="brand-mark">
+    <div class="brand-text">
+      <div class="brand-word">Giveback Groupe 10</div>
+      <div class="brand-tagline">Éducation, accès aux opportunités</div>
+    </div>
+  </a>
+  <nav class="sans">
+    <a href="index.html">Opportunités</a>
+    <a href="formations.html">Mini-formations</a>
+    <a href="mentors.html">Mentors</a>
+    <a href="communaute.html">Communauté</a>
+    <a href="#" id="logoutLink">Se déconnecter</a>
+  </nav>
+</header>
+
+<section class="page-shell">
+  <div class="shell-bg"></div>
+  <div class="shell-particles" id="heroParticles"></div>
+
+  <div class="hero-content" style="display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:56px; padding-bottom:8px; max-width:900px;">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <div id="userAvatar" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--forest),var(--gold));display:flex;align-items:center;justify-content:center;color:var(--paper);font-family:Inter,sans-serif;font-weight:700;font-size:15px;flex:none;"></div>
+      <div>
+        <h1 id="greeting" style="margin:0 0 4px;">Bonjour 👋</h1>
+        <p class="lead" style="margin:0;">Vos opportunités recommandées et le suivi de vos candidatures.</p>
+      </div>
+    </div>
+    <button id="editProfileBtn" class="btn-outline">✏️ Modifier mon profil</button>
+  </div>
+
+  <div class="wrap shell-inner" id="editProfileZone" style="display:none; padding-top:0; padding-bottom:0;">
+    <div class="post-form" style="margin-bottom:24px;">
+      <div class="field">
+        <label>Prénom</label>
+        <input type="text" id="editPrenom">
+      </div>
+      <div class="field">
+        <label>Photo de profil (lien direct — Imgur, postimages...)</label>
+        <input type="text" id="editPhotoUrl" placeholder="https://i.imgur.com/xxxxxxx.jpg">
+      </div>
+      <div class="field">
+        <label>Date de naissance</label>
+        <input type="date" id="editDateNaissance">
+      </div>
+      <div class="field">
+        <label>Pays</label>
+        <input type="text" id="editPays" placeholder="Ex : Burkina Faso">
+      </div>
+      <div class="field">
+        <label>Ville</label>
+        <input type="text" id="editVille" placeholder="Ex : Ouagadougou">
+      </div>
+      <div class="field">
+        <label>Votre situation</label>
+        <div class="checkgrid">
+          <label class="chk"><input type="radio" name="editStatut" value="bachelier"> Nouveau bachelier</label>
+          <label class="chk"><input type="radio" name="editStatut" value="etudiant"> Étudiant en cours</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Cela s'applique à vous aujourd'hui ? (peut évoluer, mets à jour librement)</label>
+        <div class="checkgrid">
+          <label class="chk"><input type="checkbox" value="handicap"> Situation de handicap</label>
+          <label class="chk"><input type="checkbox" value="orphelin"> Orphelin</label>
+          <label class="chk"><input type="checkbox" value="famille-modeste"> Famille modeste</label>
+        </div>
+      </div>
+      <button class="btn" id="saveProfileBtn">Enregistrer les modifications</button>
+      <div class="msg" id="profileMsg"></div>
+    </div>
+  </div>
+
+  <div class="wrap shell-inner">
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Rechercher une bourse, un stage, un mot-clé…">
+  </div>
+  <div id="filters" class="filters"></div>
+  <div id="grid" class="grid">
+    <p class="sans" style="color:#D9E2DD">Chargement…</p>
+  </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabaseClient.js"></script>
+<script>
+let currentUser = null;
+let currentTags = [];
+let myApplications = [];
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    window.location.href = "auth.html";
+    return;
+  }
+  currentUser = session.user;
+
+  const { data: profile } = await db
+    .from("profiles")
+    .select("*")
+    .eq("id", currentUser.id)
+    .single();
+
+  document.getElementById("greeting").textContent =
+    "Bonjour " + (profile?.prenom || "") + " 👋";
+  const avatarEl = document.getElementById("userAvatar");
+  if (profile?.photo_url) {
+    avatarEl.style.backgroundImage = `url(${profile.photo_url})`;
+    avatarEl.style.backgroundSize = "cover";
+    avatarEl.style.backgroundPosition = "center";
+    avatarEl.textContent = "";
+  } else {
+    avatarEl.textContent = (profile?.prenom || "?").slice(0, 2).toUpperCase();
+  }
+  currentTags = (profile?.statut ? [profile.statut] : []).concat(profile?.tags || []);
+
+  // Pré-remplir le formulaire de modification avec les données actuelles
+  document.getElementById("editPrenom").value = profile?.prenom || "";
+  document.getElementById("editPhotoUrl").value = profile?.photo_url || "";
+  document.getElementById("editDateNaissance").value = profile?.date_naissance || "";
+  document.getElementById("editPays").value = profile?.pays || "";
+  document.getElementById("editVille").value = profile?.ville || "";
+  if (profile?.statut) {
+    const radio = document.querySelector(`input[name="editStatut"][value="${profile.statut}"]`);
+    if (radio) radio.checked = true;
+  }
+  (profile?.tags || []).forEach(tag => {
+    const chk = document.querySelector(`#editProfileZone input[type="checkbox"][value="${tag}"]`);
+    if (chk) chk.checked = true;
+  });
+
+  document.getElementById("editProfileBtn").addEventListener("click", () => {
+    const zone = document.getElementById("editProfileZone");
+    zone.style.display = zone.style.display === "none" ? "block" : "none";
+  });
+
+  document.getElementById("saveProfileBtn").addEventListener("click", async () => {
+    const msg = document.getElementById("profileMsg");
+    const newPrenom = document.getElementById("editPrenom").value.trim();
+    const newPhotoUrl = document.getElementById("editPhotoUrl").value.trim();
+    const newDateNaissance = document.getElementById("editDateNaissance").value || null;
+    const newPays = document.getElementById("editPays").value.trim();
+    const newVille = document.getElementById("editVille").value.trim();
+    const statutInput = document.querySelector('input[name="editStatut"]:checked');
+    const newStatut = statutInput ? statutInput.value : null;
+    const newTags = Array.from(document.querySelectorAll('#editProfileZone .checkgrid input[type="checkbox"]:checked')).map(i => i.value);
+
+    const { error: updateError } = await db
+      .from("profiles")
+      .update({
+        prenom: newPrenom, statut: newStatut, tags: newTags, photo_url: newPhotoUrl || null,
+        date_naissance: newDateNaissance, pays: newPays || null, ville: newVille || null,
+      })
+      .eq("id", currentUser.id);
+
+    if (updateError) {
+      msg.textContent = "Erreur : " + updateError.message;
+      msg.className = "msg error";
+      return;
+    }
+
+    msg.textContent = "✓ Profil mis à jour !";
+    msg.className = "msg ok";
+    document.getElementById("greeting").textContent = "Bonjour " + (newPrenom || "") + " 👋";
+    if (newPhotoUrl) {
+      avatarEl.style.backgroundImage = `url(${newPhotoUrl})`;
+      avatarEl.style.backgroundSize = "cover";
+      avatarEl.style.backgroundPosition = "center";
+      avatarEl.textContent = "";
+    } else {
+      avatarEl.style.backgroundImage = "none";
+      avatarEl.textContent = (newPrenom || "?").slice(0, 2).toUpperCase();
+    }
+    currentTags = (newStatut ? [newStatut] : []).concat(newTags);
+    renderFilters();
+    renderCards();
+  });
+
+  const { data: apps } = await db
+    .from("applications")
+    .select("opportunity_id")
+    .eq("user_id", currentUser.id);
+  myApplications = (apps || []).map(a => a.opportunity_id);
+
+  const { data: opportunities, error } = await db
+    .from("opportunities")
+    .select("*")
+    .order("deadline", { ascending: true });
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  if (error) {
+    grid.innerHTML = `<p class="sans" style="color:var(--danger)">Erreur : ${error.message}</p>`;
+    return;
+  }
+
+  if (!opportunities || opportunities.length === 0) {
+    grid.innerHTML = `<div class="empty">Aucune opportunité disponible pour le moment.</div>`;
+    return;
+  }
+
+  const sorted = [...opportunities].sort((a, b) => matchScore(b) - matchScore(a));
+
+  const types = Array.from(new Set(sorted.map(o => o.type).filter(Boolean))).sort();
+  const filtersDiv = document.getElementById("filters");
+  const searchInput = document.getElementById("searchInput");
+  let activeType = "Tous";
+  let searchTerm = "";
+
+  searchInput.addEventListener("input", () => {
+    searchTerm = searchInput.value.trim().toLowerCase();
+    renderCards();
+  });
+
+  function renderFilters() {
+    filtersDiv.innerHTML = "";
+    const allChip = document.createElement("button");
+    allChip.className = "filter-chip" + (activeType === "Tous" ? " active" : "");
+    allChip.textContent = `Tous (${sorted.length})`;
+    allChip.addEventListener("click", () => { activeType = "Tous"; renderFilters(); renderCards(); });
+    filtersDiv.appendChild(allChip);
+
+    types.forEach(t => {
+      const count = sorted.filter(o => o.type === t).length;
+      const chip = document.createElement("button");
+      chip.className = "filter-chip" + (activeType === t ? " active" : "");
+      chip.textContent = `${t} (${count})`;
+      chip.addEventListener("click", () => { activeType = t; renderFilters(); renderCards(); });
+      filtersDiv.appendChild(chip);
+    });
+  }
+
+  function renderCards() {
+    let filtered = activeType === "Tous" ? sorted : sorted.filter(o => o.type === activeType);
+    if (searchTerm) {
+      filtered = filtered.filter(o =>
+        (o.title || "").toLowerCase().includes(searchTerm) ||
+        (o.description || "").toLowerCase().includes(searchTerm) ||
+        (o.type || "").toLowerCase().includes(searchTerm) ||
+        (o.partenaire || "").toLowerCase().includes(searchTerm)
+      );
+    }
+    grid.innerHTML = "";
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<div class="empty">Aucune opportunité ne correspond à ta recherche.</div>`;
+      return;
+    }
+
+    filtered.forEach(opp => {
+    const already = myApplications.includes(opp.id);
+    const deadline = opp.deadline ? new Date(opp.deadline).toLocaleDateString("fr-FR") : "Voir le site";
+    const lienHtml = opp.lien
+      ? `<a href="${opp.lien}" target="_blank" rel="noopener" class="sans" style="font-size:11px; color:var(--forest); font-weight:600;">Voir l'offre officielle ↗</a>`
+      : "";
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="tag">${opp.type || ""}</span>
+        <span class="sans" style="font-size:10.5px;font-weight:700;color:var(--forest);">${matchScore(opp)}% compatible</span>
+      </div>
+      ${opp.logo_url
+        ? `<span style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
+             <img src="${opp.logo_url}" alt="${opp.partenaire || ''}" style="height:22px; max-width:100px; object-fit:contain;">
+             ${opp.logo_url_2 ? `<img src="${opp.logo_url_2}" alt="" style="height:20px; max-width:70px; object-fit:contain;">` : ""}
+           </span>`
+        : (opp.partenaire ? `<span class="sans" style="display:inline-block; font-size:10px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:5px; padding:2px 7px; margin-bottom:2px;">${opp.partenaire}</span>` : "")}
+      <h3>${opp.title}</h3>
+      <p>${opp.description || ""}</p>
+      ${lienHtml}
+      <a href="mentors.html" class="sans" style="font-size:11px; color:var(--ink-soft); display:block; margin-top:4px;">👤 Se faire accompagner par un mentor</a>
+      <div class="card-foot">
+        <span>Clôture : ${deadline}</span>
+        <button class="apply-btn" data-id="${opp.id}" data-lien="${opp.lien || ""}" ${already ? "disabled" : ""}>
+          ${already ? "✓ Dans mon suivi" : "Ajouter à mon suivi"}
+        </button>
+      </div>
+    `;
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll(".apply-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const oppId = parseInt(btn.dataset.id, 10);
+        const lien = btn.dataset.lien;
+        btn.disabled = true;
+        btn.textContent = "✓ Dans mon suivi";
+        await db.from("applications").insert({
+          user_id: currentUser.id, opportunity_id: oppId, status: "En cours",
+        });
+        if (!myApplications.includes(oppId)) myApplications.push(oppId);
+
+        const goToOffer = lien && confirm(
+          "Ajoutée à votre suivi. Rappel : ceci ne soumet pas votre candidature — vous devez postuler directement sur le site officiel.\n\nOuvrir l'offre officielle maintenant ?"
+        );
+        if (goToOffer) {
+          window.open(lien, "_blank", "noopener");
+        }
+      });
+    });
+  }
+
+  renderFilters();
+  renderCards();
+}
+
+function matchScore(opp) {
+  if (!currentTags.length) return 60;
+  const oppTags = opp.tags || [];
+  const overlap = oppTags.filter(t => currentTags.includes(t)).length;
+  return Math.min(98, 55 + overlap * 16);
+}
+
+document.getElementById("logoutLink").addEventListener("click", async (e) => {
+  e.preventDefault();
+  await db.auth.signOut();
+  window.location.href = "index.html";
+});
+
+init();
+</script>
+<script>
+(function () {
+  const zone = document.getElementById("heroParticles");
+  if (!zone) return;
+  const n = 26;
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement("span");
+    const size = 3 + Math.random() * 5;
+    dot.style.width = size + "px";
+    dot.style.height = size + "px";
+    dot.style.left = Math.random() * 100 + "%";
+    dot.style.top = Math.random() * 100 + "%";
+    dot.style.animationDuration = (5 + Math.random() * 6) + "s";
+    dot.style.animationDelay = (Math.random() * 6) + "s";
+    zone.appendChild(dot);
+  }
+})();
+</script>
+</body>
+</html>
