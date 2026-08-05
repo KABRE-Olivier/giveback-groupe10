@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giveback Groupe 10 — Connexion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="ambient-layer" style="display:none"><div class="wash"></div><div id="ambientParticles"></div></div>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="https://i.postimg.cc/k5xbX766/telechargement.jpg" alt="Giveback Groupe 10" class="brand-mark">
+    <div class="brand-text">
+      <div class="brand-word">Giveback Groupe 10</div>
+      <div class="brand-tagline">Éducation, accès aux opportunités</div>
+    </div>
+  </a>
+  <nav class="sans">
+    <a href="index.html">Opportunités</a>
+  </nav>
+</header>
+
+<section class="page-shell">
+  <div class="shell-bg"></div>
+  <div class="shell-particles" id="heroParticles"></div>
+
+  <div class="hero-content" style="padding-top:56px; padding-bottom:8px; max-width:100%; text-align:center;">
+    <h1>Rejoignez la communauté</h1>
+    <p class="lead">Créez votre profil pour des recommandations personnalisées, ou connectez-vous.</p>
+  </div>
+
+  <div class="shell-inner" style="padding:20px 24px 80px;">
+  <div class="narrow" style="background:var(--paper-raised); border-radius:16px; padding:36px 32px; box-shadow:0 24px 60px rgba(0,0,0,.25); margin:0 auto; padding-top:8px;">
+  <div class="tabs">
+    <button class="tab active" id="tabLogin">Connexion</button>
+    <button class="tab" id="tabSignup">Créer un compte</button>
+  </div>
+
+  
+  <form id="loginForm">
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" required>
+    </div>
+    <div class="field">
+      <label>Mot de passe</label>
+      <input type="password" id="loginPassword" required>
+    </div>
+    <button class="btn" type="submit">Se connecter</button>
+    <div class="msg" id="loginMsg"></div>
+  </form>
+
+  
+  <form id="signupForm" style="display:none">
+    <div class="field">
+      <label>Prénom</label>
+      <input type="text" id="suPrenom" required>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="suEmail" required>
+    </div>
+    <div class="field">
+      <label>Mot de passe (6 caractères minimum)</label>
+      <input type="password" id="suPassword" required minlength="6">
+    </div>
+    <div class="field">
+      <label>Date de naissance</label>
+      <input type="date" id="suDateNaissance">
+    </div>
+    <div class="field">
+      <label>Pays</label>
+      <input type="text" id="suPays" placeholder="Ex : Burkina Faso">
+    </div>
+    <div class="field">
+      <label>Ville</label>
+      <input type="text" id="suVille" placeholder="Ex : Ouagadougou">
+    </div>
+    <div class="field">
+      <label>Votre situation</label>
+      <div class="checkgrid">
+        <label class="chk"><input type="radio" name="statut" value="bachelier"> Nouveau bachelier</label>
+        <label class="chk"><input type="radio" name="statut" value="etudiant"> Étudiant en cours</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Cela s'applique à vous ? (facultatif)</label>
+      <div class="checkgrid">
+        <label class="chk"><input type="checkbox" value="handicap"> Situation de handicap</label>
+        <label class="chk"><input type="checkbox" value="orphelin"> Orphelin</label>
+        <label class="chk"><input type="checkbox" value="famille-modeste"> Famille modeste</label>
+      </div>
+    </div>
+    <button class="btn" type="submit">Créer mon compte</button>
+    <div class="msg" id="signupMsg"></div>
+  </form>
+  </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabaseClient.js"></script>
+<script>
+const tabLogin = document.getElementById("tabLogin");
+const tabSignup = document.getElementById("tabSignup");
+const loginForm = document.getElementById("loginForm");
+const signupForm = document.getElementById("signupForm");
+
+tabLogin.onclick = () => {
+  tabLogin.classList.add("active"); tabSignup.classList.remove("active");
+  loginForm.style.display = "block"; signupForm.style.display = "none";
+};
+tabSignup.onclick = () => {
+  tabSignup.classList.add("active"); tabLogin.classList.remove("active");
+  signupForm.style.display = "block"; loginForm.style.display = "none";
+};
+
+function showMsg(el, text, ok) {
+  el.textContent = text;
+  el.className = "msg " + (ok ? "ok" : "error");
+}
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  const msg = document.getElementById("loginMsg");
+  if (error) { showMsg(msg, error.message, false); return; }
+  window.location.href = "espace.html";
+});
+
+signupForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("signupMsg");
+  const prenom = document.getElementById("suPrenom").value;
+  const email = document.getElementById("suEmail").value;
+  const password = document.getElementById("suPassword").value;
+  const dateNaissance = document.getElementById("suDateNaissance").value || null;
+  const pays = document.getElementById("suPays").value.trim();
+  const ville = document.getElementById("suVille").value.trim();
+  const statutInput = document.querySelector('input[name="statut"]:checked');
+  const statut = statutInput ? statutInput.value : null;
+  const tags = Array.from(document.querySelectorAll('.checkgrid input[type=checkbox]:checked')).map(i => i.value);
+
+  const { data, error } = await db.auth.signUp({
+    email, password,
+    options: { data: { prenom, statut, tags, date_naissance: dateNaissance, pays, ville } },
+  });
+  if (error) { showMsg(msg, error.message, false); return; }
+
+  if (data.session) {
+    window.location.href = "espace.html";
+  } else {
+    showMsg(msg, "Compte créé ! Vérifie ta boîte mail pour confirmer, puis connecte-toi.", true);
+  }
+});
+</script>
+<script>
+(function () {
+  const zone = document.getElementById("heroParticles");
+  if (!zone) return;
+  const n = 26;
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement("span");
+    const size = 3 + Math.random() * 5;
+    dot.style.width = size + "px";
+    dot.style.height = size + "px";
+    dot.style.left = Math.random() * 100 + "%";
+    dot.style.top = Math.random() * 100 + "%";
+    dot.style.animationDuration = (5 + Math.random() * 6) + "s";
+    dot.style.animationDelay = (Math.random() * 6) + "s";
+    zone.appendChild(dot);
+  }
+})();
+</script>
+</body>
+</html>
