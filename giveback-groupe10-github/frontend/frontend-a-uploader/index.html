@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giveback Groupe 10 — Opportunités éducatives</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="https://i.postimg.cc/k5xbX766/telechargement.jpg" alt="Giveback Groupe 10" class="brand-mark">
+    <div class="brand-text">
+      <div class="brand-word">Giveback Groupe 10</div>
+      <div class="brand-tagline">Éducation, accès aux opportunités</div>
+    </div>
+  </a>
+  <button class="hamburger" aria-label="Menu">☰</button>
+  <nav class="sans">
+    <a href="index.html">Opportunités</a>
+    <a href="tutoriel.html" style="color:var(--gold); font-weight:700;">❓ Comment ça marche</a>
+    <a href="espace.html">Mon espace</a>
+    <a href="formations.html">Mini-formations</a>
+    <a href="mentors.html">Mentors</a>
+    <a href="communaute.html">Communauté</a>
+    <a href="cv-builder.html">Mon CV</a>
+    <a href="feedback.html">Votre avis</a>
+    <a id="authLink" href="auth.html">Se connecter</a>
+  </nav>
+</header>
+
+<section class="page-shell">
+  <div class="shell-bg"></div>
+  <div class="shell-particles" id="heroParticles"></div>
+
+  <div class="hero-content" style="padding-top:56px; padding-bottom:8px;">
+    <h1>Toutes les opportunités éducatives, au même endroit</h1>
+    <p class="lead">Bourses, concours, formations et événements — vérifiés par l'équipe Giveback Groupe 10.</p>
+  </div>
+
+  <div class="wrap shell-inner">
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Rechercher une bourse, un stage, un mot-clé…">
+    </div>
+    <div id="featured"></div>
+    <div id="filters" class="filters"></div>
+    <div id="grid" class="grid">
+      <p class="sans" style="color:#D9E2DD">Chargement des opportunités…</p>
+    </div>
+  </div>
+</section>
+
+<script src="supabase-js.min.js"></script>
+<script src="supabaseClient.js"></script>
+<script>
+// Particules scintillantes réparties sur toute la hauteur du shell
+(function () {
+  const zone = document.getElementById("heroParticles");
+  const n = 26;
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement("span");
+    const size = 3 + Math.random() * 5;
+    dot.style.width = size + "px";
+    dot.style.height = size + "px";
+    dot.style.left = Math.random() * 100 + "%";
+    dot.style.top = Math.random() * 100 + "%";
+    dot.style.animationDuration = (5 + Math.random() * 6) + "s";
+    dot.style.animationDelay = (Math.random() * 6) + "s";
+    zone.appendChild(dot);
+  }
+})();
+</script>
+<script>
+async function init() {
+  // Adapter le lien "Se connecter" si l'utilisateur est déjà connecté
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    document.getElementById("authLink").textContent = "Mon compte";
+    document.getElementById("authLink").href = "espace.html";
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  const { data, error } = await db
+    .from("opportunities")
+    .select("*")
+    .or(`deadline.is.null,deadline.gte.${today}`)
+    .order("deadline", { ascending: true });
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  if (error) {
+    grid.innerHTML = `<p class="sans" style="color:var(--danger)">Erreur de chargement : ${error.message}. Vérifie ta configuration Supabase dans supabaseClient.js.</p>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    grid.innerHTML = `<div class="empty">Aucune opportunité pour le moment. Ajoutes-en depuis Supabase (table "opportunities").</div>`;
+    return;
+  }
+
+  // À la une — met en avant les opportunités partenaires (2iE / Mastercard Foundation)
+  const featured = data.filter(o => (o.partenaire || "").toLowerCase().includes("mastercard") || (o.partenaire || "").toLowerCase().includes("2ie"));
+  const featuredDiv = document.getElementById("featured");
+  if (featured.length > 0) {
+    featuredDiv.innerHTML = `
+      <div class="featured-heading">
+        <span class="featured-star">★</span> À LA UNE — OPPORTUNITÉS PARTENAIRES
+      </div>
+      <div class="grid featured-grid">
+        ${featured.map(opp => {
+          const deadline = opp.deadline ? new Date(opp.deadline).toLocaleDateString("fr-FR") : "Voir le site";
+          const logo = opp.logo_url ? `<img src="${opp.logo_url}" alt="${opp.partenaire || ''}" style="height:32px; max-width:130px; object-fit:contain; margin-bottom:6px;">` : "";
+          return `
+            <div class="card featured-card">
+              <span class="badge badge-financement" style="align-self:flex-start;">★ Partenaire</span>
+              ${logo}
+              <h3>${opp.title}</h3>
+              <p>${(opp.description || "").slice(0, 110)}${(opp.description || "").length > 110 ? "…" : ""}</p>
+              <div class="card-foot" style="align-items:center;">
+                <span>Clôture : ${deadline}</span>
+                ${opp.lien ? `<a href="${opp.lien}" target="_blank" rel="noopener" class="btn-pill">Voir l'offre →</a>` : ""}
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  // Construire la liste des types présents, pour les filtres
+  const types = Array.from(new Set(data.map(o => o.type).filter(Boolean))).sort();
+  const filtersDiv = document.getElementById("filters");
+  const searchInput = document.getElementById("searchInput");
+  let activeType = "Tous";
+  let searchTerm = "";
+
+  searchInput.addEventListener("input", () => {
+    searchTerm = searchInput.value.trim().toLowerCase();
+    renderCards();
+  });
+
+  function renderFilters() {
+    filtersDiv.innerHTML = "";
+    const allChip = document.createElement("button");
+    allChip.className = "filter-chip" + (activeType === "Tous" ? " active" : "");
+    allChip.textContent = `Tous (${data.length})`;
+    allChip.addEventListener("click", () => { activeType = "Tous"; renderFilters(); renderCards(); });
+    filtersDiv.appendChild(allChip);
+
+    types.forEach(t => {
+      const count = data.filter(o => o.type === t).length;
+      const chip = document.createElement("button");
+      chip.className = "filter-chip" + (activeType === t ? " active" : "");
+      chip.textContent = `${t} (${count})`;
+      chip.addEventListener("click", () => { activeType = t; renderFilters(); renderCards(); });
+      filtersDiv.appendChild(chip);
+    });
+  }
+
+  function renderCards() {
+    let filtered = activeType === "Tous" ? data : data.filter(o => o.type === activeType);
+    if (searchTerm) {
+      filtered = filtered.filter(o =>
+        (o.title || "").toLowerCase().includes(searchTerm) ||
+        (o.description || "").toLowerCase().includes(searchTerm) ||
+        (o.type || "").toLowerCase().includes(searchTerm) ||
+        (o.partenaire || "").toLowerCase().includes(searchTerm)
+      );
+    }
+    grid.innerHTML = "";
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<div class="empty">Aucune opportunité ne correspond à ta recherche.</div>`;
+      return;
+    }
+
+    filtered.forEach(opp => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const deadline = opp.deadline ? new Date(opp.deadline).toLocaleDateString("fr-FR") : "Voir le site";
+    const lienHtml = opp.lien
+      ? `<a href="${opp.lien}" target="_blank" rel="noopener" class="btn-pill">Voir l'offre →</a>`
+      : `<a href="espace.html" class="btn-pill">Voir →</a>`;
+    card.innerHTML = `
+      <div class="badge-row">
+        <span class="badge badge-type">${opp.type || ""}</span>
+        ${opp.financement ? `<span class="badge badge-financement">${opp.financement}</span>` : ""}
+        ${opp.pays_cible ? `<span class="badge badge-open" style="background:var(--gold-soft); color:var(--forest-deep);">📍 ${opp.pays_cible}</span>` : ""}
+        <span class="badge badge-open">✓ Ouvert</span>
+      </div>
+      ${opp.logo_url
+        ? `<span style="display:flex; align-items:center; gap:12px; margin-bottom:2px;">
+             <img src="${opp.logo_url}" alt="${opp.partenaire || ''}" style="height:38px; max-width:150px; object-fit:contain;">
+             ${opp.logo_url_2 ? `<img src="${opp.logo_url_2}" alt="" style="height:34px; max-width:100px; object-fit:contain;">` : ""}
+           </span>`
+        : (opp.partenaire ? `<span class="sans" style="display:inline-block; font-size:10px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:5px; padding:2px 7px; margin-bottom:2px;">${opp.partenaire}</span>` : "")}
+      <h3>${opp.title}</h3>
+      <p>${opp.description || ""}</p>
+      <div class="card-foot" style="align-items:center;">
+        <span>Clôture : ${deadline}</span>
+        ${lienHtml}
+      </div>
+    `;
+      grid.appendChild(card);
+    });
+  }
+
+  renderFilters();
+  renderCards();
+}
+init();
+</script>
+<button class="assistant-fab" id="assistantFab">💬</button>
+<div class="assistant-panel" id="assistantPanel">
+  <div class="assistant-header">
+    <span>🌱 Assistant Giveback</span>
+    <button id="assistantClose">✕</button>
+  </div>
+  <div class="assistant-body" id="assistantBody">
+    <div class="assistant-msg bot">Bonjour 👋 Je peux répondre aux questions courantes et aussi consulter les vraies données de la plateforme (bourses disponibles, mentors, tes candidatures). Choisis une question ou écris la tienne.</div>
+  </div>
+  <div class="assistant-suggestions" id="assistantSuggestions"></div>
+  <div class="assistant-input-row">
+    <input type="text" id="assistantInput" placeholder="Pose ta question…">
+    <button id="assistantSend">Envoyer</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const FAQ = [
+    {
+      q: "Bonjour !",
+      k: ["salut", "bonjour", "bonsoir", "hello", "coucou", "cc"],
+      a: "Bonjour 👋 Comment puis-je t'aider ? Tu peux me demander \"quelles bourses sont disponibles\", \"quel mentor pour m'aider\", ou n'importe quelle question sur la plateforme."
+    },
+    {
+      q: "Comment créer un compte ?",
+      k: ["compte", "inscription", "inscrire", "créer un compte", "s'inscrire"],
+      a: "Clique sur \"Se connecter\" en haut à droite, puis sur l'onglet \"Créer un compte\". Remplis le formulaire, tu recevras un email de confirmation à valider avant de pouvoir te connecter."
+    },
+    {
+      q: "Comment contacter un mentor ?",
+      k: ["mentor", "contacter", "whatsapp", "accompagn", "aide"],
+      a: "Va sur la page \"Mentors\", choisis celui qui correspond à ton besoin, puis clique sur \"Demander ce mentor\" ou directement sur les liens Email/WhatsApp affichés sur sa carte."
+    },
+    {
+      q: "Le site est-il gratuit ?",
+      k: ["gratuit", "payant", "prix", "coût", "argent"],
+      a: "Oui, la plateforme est entièrement gratuite. Elle centralise des opportunités réelles (bourses, stages, formations) et un accompagnement par des mentors bénévoles."
+    },
+    {
+      q: "Comment suivre ma candidature ?",
+      k: ["suivre", "candidature", "suivi", "statut", "postuler"],
+      a: "Sur une opportunité, clique sur \"Ajouter à mon suivi\" : elle apparaît alors dans \"Mon espace\". Attention, ça ne remplace pas la vraie candidature — tu dois aussi postuler sur le site officiel via le bouton \"Voir l'offre officielle\"."
+    },
+    {
+      q: "J'ai oublié mon mot de passe",
+      k: ["mot de passe", "oublié", "password", "reset"],
+      a: "La réinitialisation automatique n'est pas encore disponible. En attendant, contacte Kabre Olivier (coordinateur) via la page \"Mentors\" pour te débloquer."
+    },
+    {
+      q: "Comment publier dans la communauté ?",
+      k: ["publier", "communauté", "poster", "message", "partager"],
+      a: "Va sur la page \"Communauté\", connecte-toi si besoin, écris ton message dans la zone de texte en haut et clique sur \"Publier\". Les autres peuvent réagir et commenter."
+    },
+    {
+      q: "Puis-je modifier mon profil plus tard ?",
+      k: ["modifier", "profil", "mettre à jour", "changer"],
+      a: "Oui ! Sur \"Mon espace\", clique sur \"✏️ Modifier mon profil\" — tu peux mettre à jour ton prénom, ta photo, ta situation, ta localisation à tout moment."
+    },
+    {
+      q: "C'est quoi Giveback Groupe 10 ?",
+      k: ["qui", "quoi", "plateforme", "but", "objectif", "giveback"],
+      a: "Giveback Groupe 10 est une plateforme créée par des étudiants du programme de bourses Mastercard Foundation à 2iE, pour centraliser les opportunités éducatives et accompagner les jeunes vulnérables dans leurs candidatures."
+    }
+  ];
+
+  const LIVE_INTENTS = [
+    {
+      k: ["quelles bourses", "bourses disponibles", "montre moi les bourses", "liste des bourses", "quelles opportunités", "bourse dispo", "quel bourse", "quelle bourse", "des bourses", "voir les bourses", "bourses actuelles"],
+      handler: async () => {
+        const { data } = await db.from("opportunities").select("title, type, deadline").order("deadline", { ascending: true }).limit(5);
+        if (!data || data.length === 0) return "Je n'ai trouvé aucune opportunité active en ce moment.";
+        const lines = data.map(o => `• ${o.title} (${o.type}${o.deadline ? ", clôture le " + new Date(o.deadline).toLocaleDateString("fr-FR") : ""})`);
+        return "Voici les prochaines opportunités à clôturer :\n" + lines.join("\n") + "\n\nVoir toutes les opportunités sur la page \"Opportunités\".";
+      }
+    },
+    {
+      k: ["quel mentor", "qui contacter", "mentor pour", "recommand", "besoin d'un mentor"],
+      handler: async () => {
+        const { data } = await db.from("mentors").select("nom, expertise").limit(5);
+        if (!data || data.length === 0) return "Aucun mentor n'est encore enregistré.";
+        const lines = data.map(m => `• ${m.nom} (${(m.expertise || []).join(", ") || "généraliste"})`);
+        return "Voici des mentors disponibles :\n" + lines.join("\n") + "\n\nVa sur la page \"Mentors\" pour les contacter directement.";
+      }
+    },
+    {
+      k: ["mes candidatures", "où en est ma candidature", "mon suivi", "j'ai postulé"],
+      handler: async () => {
+        const { data: { session } } = await db.auth.getSession();
+        if (!session) return "Connecte-toi d'abord pour que je puisse voir tes candidatures.";
+        const { data } = await db.from("applications").select("status, opportunities(title)").eq("user_id", session.user.id);
+        if (!data || data.length === 0) return "Tu n'as encore aucune candidature en suivi. Ajoute-en une depuis la page \"Opportunités\".";
+        const lines = data.map(a => `• ${a.opportunities?.title || "Opportunité"} — ${a.status}`);
+        return "Voici tes candidatures suivies :\n" + lines.join("\n");
+      }
+    },
+    {
+      k: ["combien de bourses", "nombre d'opportunités", "combien d'opportunités"],
+      handler: async () => {
+        const { count } = await db.from("opportunities").select("*", { count: "exact", head: true });
+        return `Il y a actuellement ${count || 0} opportunités vérifiées sur la plateforme (bourses, stages, emplois, formations).`;
+      }
+    },
+  ];
+
+  async function findAnswer(text) {
+    const q = text.toLowerCase();
+
+    for (const intent of LIVE_INTENTS) {
+      if (intent.k.some(k => q.includes(k))) {
+        try {
+          return await intent.handler();
+        } catch (e) {
+          return "Je n'ai pas réussi à récupérer cette information pour le moment. Réessaie dans un instant.";
+        }
+      }
+    }
+
+    let best = null, bestScore = 0;
+    FAQ.forEach(item => {
+      let score = 0;
+      item.k.forEach(k => { if (q.includes(k)) score++; });
+      if (score > bestScore) { bestScore = score; best = item; }
+    });
+    if (bestScore > 0) return best.a;
+
+    return "Je n'ai pas de réponse toute prête pour ça. Essaie de reformuler (ex: \"quelles bourses sont disponibles ?\", \"quel mentor pour...\"), ou contacte un mentor via la page \"Mentors\" pour une aide personnalisée.";
+  }
+
+  const fab = document.getElementById("assistantFab");
+  const panel = document.getElementById("assistantPanel");
+  const body = document.getElementById("assistantBody");
+  const input = document.getElementById("assistantInput");
+  const sendBtn = document.getElementById("assistantSend");
+  const closeBtn = document.getElementById("assistantClose");
+  const suggestions = document.getElementById("assistantSuggestions");
+
+  const suggestedQuestions = [
+    "Quelles bourses sont disponibles ?",
+    "Quel mentor pour m'aider ?",
+    "Où en sont mes candidatures ?",
+  ];
+  suggestedQuestions.forEach(q => {
+    const btn = document.createElement("button");
+    btn.textContent = q;
+    btn.addEventListener("click", () => ask(q));
+    suggestions.appendChild(btn);
+  });
+
+  function addMsg(text, who) {
+    const div = document.createElement("div");
+    div.className = "assistant-msg " + who;
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  async function ask(text) {
+    if (!text.trim()) return;
+    addMsg(text, "user");
+    input.value = "";
+    addMsg("…", "bot");
+    const thinking = body.lastChild;
+    const answer = await findAnswer(text);
+    thinking.textContent = answer;
+    body.scrollTop = body.scrollHeight;
+  }
+
+  fab.addEventListener("click", () => panel.classList.toggle("open"));
+  closeBtn.addEventListener("click", () => panel.classList.remove("open"));
+  sendBtn.addEventListener("click", () => ask(input.value));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(input.value); });
+})();
+</script>
+
+<script>
+document.querySelectorAll(".hamburger").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const nav = btn.closest("header").querySelector("nav.sans");
+    if (nav) nav.classList.toggle("open");
+  });
+});
+</script>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-about">
+      <h4>À propos</h4>
+      <p>
+        <b>Giveback Groupe 10</b> est un projet réalisé par des étudiants du programme
+        <b>Mastercard Foundation Scholars</b> à l'<b>Institut 2iE</b>, dans le cadre du
+        <b>Give Back Activity</b>. La plateforme centralise des opportunités (bourses,
+        formations, stages, concours) provenant de nombreuses institutions africaines et
+        internationales, et propose un accompagnement par des mentors bénévoles.
+      </p>
+      <p style="color:#9FB3AC; font-size:11.5px;">
+        Ce projet est mené par des étudiants dans le cadre de leur formation — il ne constitue
+        pas un service officiel de l'Institut 2iE ni de la Fondation Mastercard.
+      </p>
+    </div>
+    <div class="footer-links">
+      <h4>Navigation</h4>
+      <a href="index.html">Opportunités</a>
+      <a href="mentors.html">Mentors</a>
+      <a href="formations.html">Mini-formations</a>
+      <a href="communaute.html">Communauté</a>
+      <a href="tutoriel.html">Comment ça marche</a>
+      <a href="confidentialite.html">Confidentialité</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    © 2026 Giveback Groupe 10 — Give Back Activity, Mastercard Foundation × Institut 2iE
+  </div>
+</footer>
+
+</body>
+</html>

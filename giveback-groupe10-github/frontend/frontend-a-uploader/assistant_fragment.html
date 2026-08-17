@@ -1,0 +1,174 @@
+<button class="assistant-fab" id="assistantFab">💬</button>
+<div class="assistant-panel" id="assistantPanel">
+  <div class="assistant-header">
+    <span>🌱 Assistant Giveback</span>
+    <button id="assistantClose">✕</button>
+  </div>
+  <div class="assistant-body" id="assistantBody">
+    <div class="assistant-msg bot">Bonjour 👋 Je peux répondre aux questions courantes et aussi consulter les vraies données de la plateforme (bourses disponibles, mentors, tes candidatures). Choisis une question ou écris la tienne.</div>
+  </div>
+  <div class="assistant-suggestions" id="assistantSuggestions"></div>
+  <div class="assistant-input-row">
+    <input type="text" id="assistantInput" placeholder="Pose ta question…">
+    <button id="assistantSend">Envoyer</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const FAQ = [
+    {
+      q: "Bonjour !",
+      k: ["salut", "bonjour", "bonsoir", "hello", "coucou", "cc"],
+      a: "Bonjour 👋 Comment puis-je t'aider ? Tu peux me demander \"quelles bourses sont disponibles\", \"quel mentor pour m'aider\", ou n'importe quelle question sur la plateforme."
+    },
+    {
+      q: "Comment créer un compte ?",
+      k: ["compte", "inscription", "inscrire", "créer un compte", "s'inscrire"],
+      a: "Clique sur \"Se connecter\" en haut à droite, puis sur l'onglet \"Créer un compte\". Remplis le formulaire, tu recevras un email de confirmation à valider avant de pouvoir te connecter."
+    },
+    {
+      q: "Comment contacter un mentor ?",
+      k: ["mentor", "contacter", "whatsapp", "accompagn", "aide"],
+      a: "Va sur la page \"Mentors\", choisis celui qui correspond à ton besoin, puis clique sur \"Demander ce mentor\" ou directement sur les liens Email/WhatsApp affichés sur sa carte."
+    },
+    {
+      q: "Le site est-il gratuit ?",
+      k: ["gratuit", "payant", "prix", "coût", "argent"],
+      a: "Oui, la plateforme est entièrement gratuite. Elle centralise des opportunités réelles (bourses, stages, formations) et un accompagnement par des mentors bénévoles."
+    },
+    {
+      q: "Comment suivre ma candidature ?",
+      k: ["suivre", "candidature", "suivi", "statut", "postuler"],
+      a: "Sur une opportunité, clique sur \"Ajouter à mon suivi\" : elle apparaît alors dans \"Mon espace\". Attention, ça ne remplace pas la vraie candidature — tu dois aussi postuler sur le site officiel via le bouton \"Voir l'offre officielle\"."
+    },
+    {
+      q: "J'ai oublié mon mot de passe",
+      k: ["mot de passe", "oublié", "password", "reset"],
+      a: "La réinitialisation automatique n'est pas encore disponible. En attendant, contacte Kabre Olivier (coordinateur) via la page \"Mentors\" pour te débloquer."
+    },
+    {
+      q: "Comment publier dans la communauté ?",
+      k: ["publier", "communauté", "poster", "message", "partager"],
+      a: "Va sur la page \"Communauté\", connecte-toi si besoin, écris ton message dans la zone de texte en haut et clique sur \"Publier\". Les autres peuvent réagir et commenter."
+    },
+    {
+      q: "Puis-je modifier mon profil plus tard ?",
+      k: ["modifier", "profil", "mettre à jour", "changer"],
+      a: "Oui ! Sur \"Mon espace\", clique sur \"✏️ Modifier mon profil\" — tu peux mettre à jour ton prénom, ta photo, ta situation, ta localisation à tout moment."
+    },
+    {
+      q: "C'est quoi Giveback Groupe 10 ?",
+      k: ["qui", "quoi", "plateforme", "but", "objectif", "giveback"],
+      a: "Giveback Groupe 10 est une plateforme créée par des étudiants du programme de bourses Mastercard Foundation à 2iE, pour centraliser les opportunités éducatives et accompagner les jeunes vulnérables dans leurs candidatures."
+    }
+  ];
+
+  const LIVE_INTENTS = [
+    {
+      k: ["quelles bourses", "bourses disponibles", "montre moi les bourses", "liste des bourses", "quelles opportunités", "bourse dispo", "quel bourse", "quelle bourse", "des bourses", "voir les bourses", "bourses actuelles"],
+      handler: async () => {
+        const { data } = await db.from("opportunities").select("title, type, deadline").order("deadline", { ascending: true }).limit(5);
+        if (!data || data.length === 0) return "Je n'ai trouvé aucune opportunité active en ce moment.";
+        const lines = data.map(o => `• ${o.title} (${o.type}${o.deadline ? ", clôture le " + new Date(o.deadline).toLocaleDateString("fr-FR") : ""})`);
+        return "Voici les prochaines opportunités à clôturer :\n" + lines.join("\n") + "\n\nVoir toutes les opportunités sur la page \"Opportunités\".";
+      }
+    },
+    {
+      k: ["quel mentor", "qui contacter", "mentor pour", "recommand", "besoin d'un mentor"],
+      handler: async () => {
+        const { data } = await db.from("mentors").select("nom, expertise").limit(5);
+        if (!data || data.length === 0) return "Aucun mentor n'est encore enregistré.";
+        const lines = data.map(m => `• ${m.nom} (${(m.expertise || []).join(", ") || "généraliste"})`);
+        return "Voici des mentors disponibles :\n" + lines.join("\n") + "\n\nVa sur la page \"Mentors\" pour les contacter directement.";
+      }
+    },
+    {
+      k: ["mes candidatures", "où en est ma candidature", "mon suivi", "j'ai postulé"],
+      handler: async () => {
+        const { data: { session } } = await db.auth.getSession();
+        if (!session) return "Connecte-toi d'abord pour que je puisse voir tes candidatures.";
+        const { data } = await db.from("applications").select("status, opportunities(title)").eq("user_id", session.user.id);
+        if (!data || data.length === 0) return "Tu n'as encore aucune candidature en suivi. Ajoute-en une depuis la page \"Opportunités\".";
+        const lines = data.map(a => `• ${a.opportunities?.title || "Opportunité"} — ${a.status}`);
+        return "Voici tes candidatures suivies :\n" + lines.join("\n");
+      }
+    },
+    {
+      k: ["combien de bourses", "nombre d'opportunités", "combien d'opportunités"],
+      handler: async () => {
+        const { count } = await db.from("opportunities").select("*", { count: "exact", head: true });
+        return `Il y a actuellement ${count || 0} opportunités vérifiées sur la plateforme (bourses, stages, emplois, formations).`;
+      }
+    },
+  ];
+
+  async function findAnswer(text) {
+    const q = text.toLowerCase();
+
+    for (const intent of LIVE_INTENTS) {
+      if (intent.k.some(k => q.includes(k))) {
+        try {
+          return await intent.handler();
+        } catch (e) {
+          return "Je n'ai pas réussi à récupérer cette information pour le moment. Réessaie dans un instant.";
+        }
+      }
+    }
+
+    let best = null, bestScore = 0;
+    FAQ.forEach(item => {
+      let score = 0;
+      item.k.forEach(k => { if (q.includes(k)) score++; });
+      if (score > bestScore) { bestScore = score; best = item; }
+    });
+    if (bestScore > 0) return best.a;
+
+    return "Je n'ai pas de réponse toute prête pour ça. Essaie de reformuler (ex: \"quelles bourses sont disponibles ?\", \"quel mentor pour...\"), ou contacte un mentor via la page \"Mentors\" pour une aide personnalisée.";
+  }
+
+  const fab = document.getElementById("assistantFab");
+  const panel = document.getElementById("assistantPanel");
+  const body = document.getElementById("assistantBody");
+  const input = document.getElementById("assistantInput");
+  const sendBtn = document.getElementById("assistantSend");
+  const closeBtn = document.getElementById("assistantClose");
+  const suggestions = document.getElementById("assistantSuggestions");
+
+  const suggestedQuestions = [
+    "Quelles bourses sont disponibles ?",
+    "Quel mentor pour m'aider ?",
+    "Où en sont mes candidatures ?",
+  ];
+  suggestedQuestions.forEach(q => {
+    const btn = document.createElement("button");
+    btn.textContent = q;
+    btn.addEventListener("click", () => ask(q));
+    suggestions.appendChild(btn);
+  });
+
+  function addMsg(text, who) {
+    const div = document.createElement("div");
+    div.className = "assistant-msg " + who;
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  async function ask(text) {
+    if (!text.trim()) return;
+    addMsg(text, "user");
+    input.value = "";
+    addMsg("…", "bot");
+    const thinking = body.lastChild;
+    const answer = await findAnswer(text);
+    thinking.textContent = answer;
+    body.scrollTop = body.scrollHeight;
+  }
+
+  fab.addEventListener("click", () => panel.classList.toggle("open"));
+  closeBtn.addEventListener("click", () => panel.classList.remove("open"));
+  sendBtn.addEventListener("click", () => ask(input.value));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(input.value); });
+})();
+</script>

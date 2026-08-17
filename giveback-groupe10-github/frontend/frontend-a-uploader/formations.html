@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giveback Groupe 10 — Mini-formations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .video-card{ background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .video-frame{ position:relative; width:100%; padding-top:56.25%; background:#000; }
+  .video-frame iframe{ position:absolute; top:0; left:0; width:100%; height:100%; border:none; }
+  .video-body{ padding:16px 18px; }
+  .video-body h3{ font-size:15px; margin:0 0 6px; font-weight:500; }
+  .video-body p{ font-family:Inter,sans-serif; font-size:12.5px; color:var(--ink-soft); margin:0; }
+  .cat-heading{ font-family:Inter,sans-serif; font-size:12px; font-weight:700; color:var(--gold); letter-spacing:.05em; text-transform:uppercase; margin:32px 0 14px; }
+  .cat-heading:first-of-type{ margin-top:0; }
+  .video-actions{ display:flex; gap:16px; border-top:1px solid var(--line); padding:10px 18px; align-items:center; flex-wrap:wrap; }
+  .who-reacted{ font-family:Inter,sans-serif; font-size:11px; color:var(--ink-soft); font-style:italic; }
+  .vid-like-btn{ background:none; border:none; font-family:Inter,sans-serif; font-size:12.5px; color:var(--ink-soft); display:flex; align-items:center; gap:5px; padding:0; }
+  .vid-like-btn.liked{ color:#C0392B; font-weight:600; }
+  .vid-comment-btn{ background:none; border:none; font-family:Inter,sans-serif; font-size:12.5px; color:var(--ink-soft); display:flex; align-items:center; gap:5px; padding:0; }
+  .vid-comments-zone{ display:none; padding:0 18px 14px; }
+  .vid-comments-zone.open{ display:block; }
+  .vid-comment{ padding:7px 0; border-top:1px solid var(--line); font-family:Inter,sans-serif; font-size:12px; }
+  .vid-comment b{ color:var(--forest); }
+  .vid-comment-form{ display:flex; gap:6px; margin-top:8px; }
+  .vid-comment-form input{ flex:1; border:1px solid var(--line); border-radius:6px; padding:6px 9px; font-size:12px; font-family:inherit; }
+  .vid-comment-form button{ background:var(--forest); color:var(--paper); border:none; padding:6px 12px; border-radius:6px; font-size:11.5px; font-family:Inter,sans-serif; font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="ambient-layer" style="display:none"><div class="wash"></div><div id="ambientParticles"></div></div>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="https://i.postimg.cc/k5xbX766/telechargement.jpg" alt="Giveback Groupe 10" class="brand-mark">
+    <div class="brand-text">
+      <div class="brand-word">Giveback Groupe 10</div>
+      <div class="brand-tagline">Éducation, accès aux opportunités</div>
+    </div>
+  </a>
+  <button class="hamburger" aria-label="Menu">☰</button>
+  <nav class="sans">
+    <a href="index.html">Opportunités</a>
+    <a href="tutoriel.html" style="color:var(--gold); font-weight:700;">❓ Comment ça marche</a>
+    <a href="formations.html">Mini-formations</a>
+    <a href="mentors.html">Mentors</a>
+    <a href="communaute.html">Communauté</a>
+    <a href="cv-builder.html">Mon CV</a>
+    <a href="feedback.html">Votre avis</a>
+    <a href="espace.html">Mon espace</a>
+  </nav>
+</header>
+
+<section class="page-shell">
+  <div class="shell-bg"></div>
+  <div class="shell-particles" id="heroParticles"></div>
+
+  <div class="hero-content" style="padding-top:56px; padding-bottom:8px;">
+    <h1>Mini-formations</h1>
+    <p class="lead">De courtes vidéos pour préparer vos candidatures : CV, lettre de motivation, et plus à venir.</p>
+  </div>
+
+  <div class="wrap shell-inner">
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Rechercher une formation, un mot-clé…">
+  </div>
+  <div id="filters" class="filters"></div>
+  <div id="content">
+    <p class="sans" style="color:#D9E2DD">Chargement…</p>
+  </div>
+  </div>
+</section>
+
+<script src="supabase-js.min.js"></script>
+<script src="supabaseClient.js"></script>
+<script>
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  const currentUser = session ? session.user : null;
+  let currentPrenom = "Anonyme";
+  if (currentUser) {
+    const { data: profile } = await db.from("profiles").select("prenom").eq("id", currentUser.id).single();
+    currentPrenom = profile?.prenom || "Anonyme";
+  }
+
+  const { data, error } = await db
+    .from("formations")
+    .select("*")
+    .order("categorie", { ascending: true });
+
+  const content = document.getElementById("content");
+  content.innerHTML = "";
+
+  if (error) {
+    content.innerHTML = `<p class="sans" style="color:var(--danger)">Erreur : ${error.message}</p>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    content.innerHTML = `<div class="empty">Aucune mini-formation pour le moment. Ajoutes-en depuis Supabase (table "formations").</div>`;
+    return;
+  }
+
+  const categories = Array.from(new Set(data.map(f => f.categorie).filter(Boolean))).sort();
+  const filtersDiv = document.getElementById("filters");
+  const searchInput = document.getElementById("searchInput");
+  let activeCat = "Toutes";
+  let searchTerm = "";
+
+  searchInput.addEventListener("input", () => {
+    searchTerm = searchInput.value.trim().toLowerCase();
+    renderContent();
+  });
+
+  function renderFilters() {
+    filtersDiv.innerHTML = "";
+    const allChip = document.createElement("button");
+    allChip.className = "filter-chip" + (activeCat === "Toutes" ? " active" : "");
+    allChip.textContent = `Toutes (${data.length})`;
+    allChip.addEventListener("click", () => { activeCat = "Toutes"; renderFilters(); renderContent(); });
+    filtersDiv.appendChild(allChip);
+
+    categories.forEach(cat => {
+      const count = data.filter(f => f.categorie === cat).length;
+      const chip = document.createElement("button");
+      chip.className = "filter-chip" + (activeCat === cat ? " active" : "");
+      chip.textContent = `${cat} (${count})`;
+      chip.addEventListener("click", () => { activeCat = cat; renderFilters(); renderContent(); });
+      filtersDiv.appendChild(chip);
+    });
+  }
+
+  async function renderContent() {
+    let filtered = activeCat === "Toutes" ? data : data.filter(f => f.categorie === activeCat);
+    if (searchTerm) {
+      filtered = filtered.filter(f =>
+        (f.titre || "").toLowerCase().includes(searchTerm) ||
+        (f.description || "").toLowerCase().includes(searchTerm) ||
+        (f.categorie || "").toLowerCase().includes(searchTerm)
+      );
+    }
+
+    content.innerHTML = "";
+    if (filtered.length === 0) {
+      content.innerHTML = `<div class="empty">Aucune formation ne correspond à ta recherche.</div>`;
+      return;
+    }
+
+    const byCategory = {};
+    filtered.forEach(f => {
+      if (!byCategory[f.categorie]) byCategory[f.categorie] = [];
+      byCategory[f.categorie].push(f);
+    });
+
+    for (const cat of Object.keys(byCategory)) {
+      const heading = document.createElement("div");
+      heading.className = "cat-heading";
+      heading.textContent = cat;
+      content.appendChild(heading);
+
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      for (const f of byCategory[cat]) {
+        const { data: allFormationLikes } = await db.from("formation_likes").select("user_id").eq("formation_id", f.id);
+        const likeCount = (allFormationLikes || []).length;
+        let iLiked = false;
+        if (currentUser) {
+          iLiked = (allFormationLikes || []).some(l => l.user_id === currentUser.id);
+        }
+
+        // Qui a aimé — noms affichés collés au bouton, comme sur Facebook
+        let whoLikedHtml = "";
+        const vidLikerIds = [...new Set((allFormationLikes || []).map(l => l.user_id).filter(Boolean))];
+        if (vidLikerIds.length > 0) {
+          const { data: vidLikerProfiles } = await db.from("profiles").select("id, prenom").in("id", vidLikerIds);
+          const idToName = {};
+          (vidLikerProfiles || []).forEach(pr => { idToName[pr.id] = pr.prenom || "Anonyme"; });
+          const names = vidLikerIds.map(id => idToName[id] || "Anonyme");
+          let label = names.length <= 3
+            ? names.join(", ")
+            : `${names.slice(0, 3).join(", ")} et ${names.length - 3} autre${names.length - 3 > 1 ? "s" : ""}`;
+          whoLikedHtml = `<div class="who-reacted">${label} ${vidLikerIds.length > 1 ? "ont aimé" : "a aimé"}</div>`;
+        }
+
+        const { count: commentCount } = await db.from("formation_comments").select("*", { count: "exact", head: true }).eq("formation_id", f.id);
+
+        const card = document.createElement("div");
+        card.className = "video-card";
+        card.innerHTML = `
+          <div class="video-frame">
+            <iframe src="https://www.youtube.com/embed/${f.video_id}" title="${f.titre}" allowfullscreen></iframe>
+          </div>
+          <div class="video-body">
+            <h3>${f.titre}</h3>
+            <p>${f.description || ""}</p>
+          </div>
+          <div class="video-actions">
+            <button class="vid-like-btn ${iLiked ? "liked" : ""}" data-id="${f.id}">
+              ${iLiked ? "❤️" : "🤍"} <span>${likeCount || 0}</span>
+            </button>
+            ${whoLikedHtml}
+            <button class="vid-comment-btn" data-id="${f.id}">💬 <span>${commentCount || 0} commentaire${commentCount === 1 ? "" : "s"}</span></button>
+          </div>
+          <div class="vid-comments-zone" id="vidComments-${f.id}"></div>
+        `;
+        grid.appendChild(card);
+      }
+      content.appendChild(grid);
+    }
+
+    content.querySelectorAll(".vid-like-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!currentUser) { window.location.href = "auth.html"; return; }
+        const fid = parseInt(btn.dataset.id, 10);
+        const liked = btn.classList.contains("liked");
+        if (liked) {
+          await db.from("formation_likes").delete().eq("formation_id", fid).eq("user_id", currentUser.id);
+        } else {
+          await db.from("formation_likes").insert({ formation_id: fid, user_id: currentUser.id });
+        }
+        renderContent();
+      });
+    });
+
+    content.querySelectorAll(".vid-comment-btn").forEach(btn => {
+      btn.addEventListener("click", () => toggleVidComments(parseInt(btn.dataset.id, 10)));
+    });
+  }
+
+  async function toggleVidComments(fid) {
+    const zone = document.getElementById("vidComments-" + fid);
+    if (zone.classList.contains("open")) { zone.classList.remove("open"); return; }
+    zone.classList.add("open");
+    zone.innerHTML = `<p class="sans" style="color:var(--ink-soft); font-size:12px;">Chargement…</p>`;
+
+    const { data: comments } = await db.from("formation_comments").select("*").eq("formation_id", fid).order("created_at", { ascending: true });
+    let html = "";
+    (comments || []).forEach(c => {
+      html += `<div class="vid-comment"><b>${c.auteur_prenom || "Anonyme"}</b> — ${c.contenu}</div>`;
+    });
+    if (!comments || comments.length === 0) {
+      html += `<p class="sans" style="color:var(--ink-soft); font-size:12px;">Aucun commentaire pour le moment.</p>`;
+    }
+    if (currentUser) {
+      html += `
+        <div class="vid-comment-form">
+          <input type="text" id="vidCommentInput-${fid}" placeholder="Écrire un commentaire…">
+          <button data-id="${fid}" class="vid-send-comment">Envoyer</button>
+        </div>
+      `;
+    }
+    zone.innerHTML = html;
+    if (currentUser) {
+      zone.querySelector(".vid-send-comment").addEventListener("click", async () => {
+        const input = document.getElementById("vidCommentInput-" + fid);
+        const text = input.value.trim();
+        if (!text) return;
+        await db.from("formation_comments").insert({ formation_id: fid, user_id: currentUser.id, auteur_prenom: currentPrenom, contenu: text });
+        await renderContent();
+        toggleVidComments(fid);
+      });
+    }
+  }
+
+  renderFilters();
+  renderContent();
+}
+init();
+</script>
+<script>
+(function () {
+  const zone = document.getElementById("heroParticles");
+  if (!zone) return;
+  const n = 26;
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement("span");
+    const size = 3 + Math.random() * 5;
+    dot.style.width = size + "px";
+    dot.style.height = size + "px";
+    dot.style.left = Math.random() * 100 + "%";
+    dot.style.top = Math.random() * 100 + "%";
+    dot.style.animationDuration = (5 + Math.random() * 6) + "s";
+    dot.style.animationDelay = (Math.random() * 6) + "s";
+    zone.appendChild(dot);
+  }
+})();
+</script>
+<button class="assistant-fab" id="assistantFab">💬</button>
+<div class="assistant-panel" id="assistantPanel">
+  <div class="assistant-header">
+    <span>🌱 Assistant Giveback</span>
+    <button id="assistantClose">✕</button>
+  </div>
+  <div class="assistant-body" id="assistantBody">
+    <div class="assistant-msg bot">Bonjour 👋 Je peux répondre aux questions courantes et aussi consulter les vraies données de la plateforme (bourses disponibles, mentors, tes candidatures). Choisis une question ou écris la tienne.</div>
+  </div>
+  <div class="assistant-suggestions" id="assistantSuggestions"></div>
+  <div class="assistant-input-row">
+    <input type="text" id="assistantInput" placeholder="Pose ta question…">
+    <button id="assistantSend">Envoyer</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const FAQ = [
+    {
+      q: "Bonjour !",
+      k: ["salut", "bonjour", "bonsoir", "hello", "coucou", "cc"],
+      a: "Bonjour 👋 Comment puis-je t'aider ? Tu peux me demander \"quelles bourses sont disponibles\", \"quel mentor pour m'aider\", ou n'importe quelle question sur la plateforme."
+    },
+    {
+      q: "Comment créer un compte ?",
+      k: ["compte", "inscription", "inscrire", "créer un compte", "s'inscrire"],
+      a: "Clique sur \"Se connecter\" en haut à droite, puis sur l'onglet \"Créer un compte\". Remplis le formulaire, tu recevras un email de confirmation à valider avant de pouvoir te connecter."
+    },
+    {
+      q: "Comment contacter un mentor ?",
+      k: ["mentor", "contacter", "whatsapp", "accompagn", "aide"],
+      a: "Va sur la page \"Mentors\", choisis celui qui correspond à ton besoin, puis clique sur \"Demander ce mentor\" ou directement sur les liens Email/WhatsApp affichés sur sa carte."
+    },
+    {
+      q: "Le site est-il gratuit ?",
+      k: ["gratuit", "payant", "prix", "coût", "argent"],
+      a: "Oui, la plateforme est entièrement gratuite. Elle centralise des opportunités réelles (bourses, stages, formations) et un accompagnement par des mentors bénévoles."
+    },
+    {
+      q: "Comment suivre ma candidature ?",
+      k: ["suivre", "candidature", "suivi", "statut", "postuler"],
+      a: "Sur une opportunité, clique sur \"Ajouter à mon suivi\" : elle apparaît alors dans \"Mon espace\". Attention, ça ne remplace pas la vraie candidature — tu dois aussi postuler sur le site officiel via le bouton \"Voir l'offre officielle\"."
+    },
+    {
+      q: "J'ai oublié mon mot de passe",
+      k: ["mot de passe", "oublié", "password", "reset"],
+      a: "La réinitialisation automatique n'est pas encore disponible. En attendant, contacte Kabre Olivier (coordinateur) via la page \"Mentors\" pour te débloquer."
+    },
+    {
+      q: "Comment publier dans la communauté ?",
+      k: ["publier", "communauté", "poster", "message", "partager"],
+      a: "Va sur la page \"Communauté\", connecte-toi si besoin, écris ton message dans la zone de texte en haut et clique sur \"Publier\". Les autres peuvent réagir et commenter."
+    },
+    {
+      q: "Puis-je modifier mon profil plus tard ?",
+      k: ["modifier", "profil", "mettre à jour", "changer"],
+      a: "Oui ! Sur \"Mon espace\", clique sur \"✏️ Modifier mon profil\" — tu peux mettre à jour ton prénom, ta photo, ta situation, ta localisation à tout moment."
+    },
+    {
+      q: "C'est quoi Giveback Groupe 10 ?",
+      k: ["qui", "quoi", "plateforme", "but", "objectif", "giveback"],
+      a: "Giveback Groupe 10 est une plateforme créée par des étudiants du programme de bourses Mastercard Foundation à 2iE, pour centraliser les opportunités éducatives et accompagner les jeunes vulnérables dans leurs candidatures."
+    }
+  ];
+
+  const LIVE_INTENTS = [
+    {
+      k: ["quelles bourses", "bourses disponibles", "montre moi les bourses", "liste des bourses", "quelles opportunités", "bourse dispo", "quel bourse", "quelle bourse", "des bourses", "voir les bourses", "bourses actuelles"],
+      handler: async () => {
+        const { data } = await db.from("opportunities").select("title, type, deadline").order("deadline", { ascending: true }).limit(5);
+        if (!data || data.length === 0) return "Je n'ai trouvé aucune opportunité active en ce moment.";
+        const lines = data.map(o => `• ${o.title} (${o.type}${o.deadline ? ", clôture le " + new Date(o.deadline).toLocaleDateString("fr-FR") : ""})`);
+        return "Voici les prochaines opportunités à clôturer :\n" + lines.join("\n") + "\n\nVoir toutes les opportunités sur la page \"Opportunités\".";
+      }
+    },
+    {
+      k: ["quel mentor", "qui contacter", "mentor pour", "recommand", "besoin d'un mentor"],
+      handler: async () => {
+        const { data } = await db.from("mentors").select("nom, expertise").limit(5);
+        if (!data || data.length === 0) return "Aucun mentor n'est encore enregistré.";
+        const lines = data.map(m => `• ${m.nom} (${(m.expertise || []).join(", ") || "généraliste"})`);
+        return "Voici des mentors disponibles :\n" + lines.join("\n") + "\n\nVa sur la page \"Mentors\" pour les contacter directement.";
+      }
+    },
+    {
+      k: ["mes candidatures", "où en est ma candidature", "mon suivi", "j'ai postulé"],
+      handler: async () => {
+        const { data: { session } } = await db.auth.getSession();
+        if (!session) return "Connecte-toi d'abord pour que je puisse voir tes candidatures.";
+        const { data } = await db.from("applications").select("status, opportunities(title)").eq("user_id", session.user.id);
+        if (!data || data.length === 0) return "Tu n'as encore aucune candidature en suivi. Ajoute-en une depuis la page \"Opportunités\".";
+        const lines = data.map(a => `• ${a.opportunities?.title || "Opportunité"} — ${a.status}`);
+        return "Voici tes candidatures suivies :\n" + lines.join("\n");
+      }
+    },
+    {
+      k: ["combien de bourses", "nombre d'opportunités", "combien d'opportunités"],
+      handler: async () => {
+        const { count } = await db.from("opportunities").select("*", { count: "exact", head: true });
+        return `Il y a actuellement ${count || 0} opportunités vérifiées sur la plateforme (bourses, stages, emplois, formations).`;
+      }
+    },
+  ];
+
+  async function findAnswer(text) {
+    const q = text.toLowerCase();
+
+    for (const intent of LIVE_INTENTS) {
+      if (intent.k.some(k => q.includes(k))) {
+        try {
+          return await intent.handler();
+        } catch (e) {
+          return "Je n'ai pas réussi à récupérer cette information pour le moment. Réessaie dans un instant.";
+        }
+      }
+    }
+
+    let best = null, bestScore = 0;
+    FAQ.forEach(item => {
+      let score = 0;
+      item.k.forEach(k => { if (q.includes(k)) score++; });
+      if (score > bestScore) { bestScore = score; best = item; }
+    });
+    if (bestScore > 0) return best.a;
+
+    return "Je n'ai pas de réponse toute prête pour ça. Essaie de reformuler (ex: \"quelles bourses sont disponibles ?\", \"quel mentor pour...\"), ou contacte un mentor via la page \"Mentors\" pour une aide personnalisée.";
+  }
+
+  const fab = document.getElementById("assistantFab");
+  const panel = document.getElementById("assistantPanel");
+  const body = document.getElementById("assistantBody");
+  const input = document.getElementById("assistantInput");
+  const sendBtn = document.getElementById("assistantSend");
+  const closeBtn = document.getElementById("assistantClose");
+  const suggestions = document.getElementById("assistantSuggestions");
+
+  const suggestedQuestions = [
+    "Quelles bourses sont disponibles ?",
+    "Quel mentor pour m'aider ?",
+    "Où en sont mes candidatures ?",
+  ];
+  suggestedQuestions.forEach(q => {
+    const btn = document.createElement("button");
+    btn.textContent = q;
+    btn.addEventListener("click", () => ask(q));
+    suggestions.appendChild(btn);
+  });
+
+  function addMsg(text, who) {
+    const div = document.createElement("div");
+    div.className = "assistant-msg " + who;
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  async function ask(text) {
+    if (!text.trim()) return;
+    addMsg(text, "user");
+    input.value = "";
+    addMsg("…", "bot");
+    const thinking = body.lastChild;
+    const answer = await findAnswer(text);
+    thinking.textContent = answer;
+    body.scrollTop = body.scrollHeight;
+  }
+
+  fab.addEventListener("click", () => panel.classList.toggle("open"));
+  closeBtn.addEventListener("click", () => panel.classList.remove("open"));
+  sendBtn.addEventListener("click", () => ask(input.value));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(input.value); });
+})();
+</script>
+
+<script>
+document.querySelectorAll(".hamburger").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const nav = btn.closest("header").querySelector("nav.sans");
+    if (nav) nav.classList.toggle("open");
+  });
+});
+</script>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-about">
+      <h4>À propos</h4>
+      <p>
+        <b>Giveback Groupe 10</b> est un projet réalisé par des étudiants du programme
+        <b>Mastercard Foundation Scholars</b> à l'<b>Institut 2iE</b>, dans le cadre du
+        <b>Give Back Activity</b>. La plateforme centralise des opportunités (bourses,
+        formations, stages, concours) provenant de nombreuses institutions africaines et
+        internationales, et propose un accompagnement par des mentors bénévoles.
+      </p>
+      <p style="color:#9FB3AC; font-size:11.5px;">
+        Ce projet est mené par des étudiants dans le cadre de leur formation — il ne constitue
+        pas un service officiel de l'Institut 2iE ni de la Fondation Mastercard.
+      </p>
+    </div>
+    <div class="footer-links">
+      <h4>Navigation</h4>
+      <a href="index.html">Opportunités</a>
+      <a href="mentors.html">Mentors</a>
+      <a href="formations.html">Mini-formations</a>
+      <a href="communaute.html">Communauté</a>
+      <a href="tutoriel.html">Comment ça marche</a>
+      <a href="confidentialite.html">Confidentialité</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    © 2026 Giveback Groupe 10 — Give Back Activity, Mastercard Foundation × Institut 2iE
+  </div>
+</footer>
+
+</body>
+</html>

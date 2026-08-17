@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giveback Groupe 10 — Votre avis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .rating-row{ display:flex; gap:8px; }
+  .rating-btn{ flex:1; padding:10px 4px; border:1.5px solid var(--line); border-radius:8px; background:var(--paper-raised); font-family:Inter,sans-serif; font-weight:700; font-size:14px; color:var(--ink-soft); display:flex; flex-direction:column; align-items:center; gap:3px; line-height:1.15; }
+  .rating-btn .rating-label{ font-weight:600; font-size:9.5px; text-transform:uppercase; letter-spacing:.02em; }
+  .rating-btn.active{ background:var(--forest); color:var(--paper); border-color:var(--forest); }
+  .radio-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .radio-row label{ flex:1; min-width:120px; }
+  .already-sent{ background:var(--gold-soft); border-radius:12px; padding:20px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="ambient-layer"><div class="wash"></div><div id="ambientParticles"></div></div>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="https://i.postimg.cc/k5xbX766/telechargement.jpg" alt="Giveback Groupe 10" class="brand-mark">
+    <div class="brand-text">
+      <div class="brand-word">Giveback Groupe 10</div>
+      <div class="brand-tagline">Éducation, accès aux opportunités</div>
+    </div>
+  </a>
+  <button class="hamburger" aria-label="Menu">☰</button>
+  <nav class="sans">
+    <a href="index.html">Opportunités</a>
+    <a href="tutoriel.html" style="color:var(--gold); font-weight:700;">❓ Comment ça marche</a>
+    <a href="espace.html">Mon espace</a>
+  </nav>
+</header>
+
+<div class="wrap" style="max-width:640px;">
+  <h1>Donnez votre avis</h1>
+  <p class="lead">Vos réponses aident directement l'équipe à améliorer la plateforme et comptent comme preuve de test auprès de notre coordination. 2 minutes suffisent.</p>
+
+  <div id="loginNotice" style="display:none;" class="login-notice">
+    Connectez-vous d'abord pour laisser votre avis (ça permet de savoir qui a déjà répondu). <a href="auth.html">Se connecter →</a>
+  </div>
+
+  <form id="feedbackForm" style="display:none;">
+    <div class="field">
+      <label>Comment avez-vous connu la plateforme ?</label>
+      <input type="text" id="commentTrouve" placeholder="Ex : un membre de l'équipe, un mentor, WhatsApp...">
+    </div>
+
+    <div class="field">
+      <label>La plateforme était-elle facile à comprendre et à utiliser ?</label>
+      <div class="rating-row" id="raterFacilite">
+        <button type="button" class="rating-btn" data-val="1">1<span class="rating-label">Très facile</span></button>
+        <button type="button" class="rating-btn" data-val="2">2<span class="rating-label">Facile</span></button>
+        <button type="button" class="rating-btn" data-val="3">3<span class="rating-label">Passable</span></button>
+        <button type="button" class="rating-btn" data-val="4">4<span class="rating-label">Difficile</span></button>
+        <button type="button" class="rating-btn" data-val="5">5<span class="rating-label">Très difficile</span></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Les opportunités proposées vous semblaient-elles pertinentes pour votre profil ?</label>
+      <div class="radio-row">
+        <label class="chk"><input type="radio" name="pertinent" value="oui"> Oui</label>
+        <label class="chk"><input type="radio" name="pertinent" value="plutot"> Plutôt</label>
+        <label class="chk"><input type="radio" name="pertinent" value="non"> Non</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Quelle fonctionnalité avez-vous trouvée la plus utile ?</label>
+      <div class="radio-row">
+        <label class="chk"><input type="radio" name="fonctionnalite" value="Catalogue d'opportunités"> Catalogue</label>
+        <label class="chk"><input type="radio" name="fonctionnalite" value="Espace personnel"> Espace perso</label>
+        <label class="chk"><input type="radio" name="fonctionnalite" value="Mentorat"> Mentorat</label>
+        <label class="chk"><input type="radio" name="fonctionnalite" value="Mini-formations"> Mini-formations</label>
+        <label class="chk"><input type="radio" name="fonctionnalite" value="Communauté"> Communauté</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Avez-vous rencontré une difficulté ou un blocage ? (facultatif)</label>
+      <input type="text" id="difficulte" placeholder="Décrivez brièvement, ou laissez vide si aucune">
+    </div>
+
+    <div class="field">
+      <label>Quelle amélioration nous conseilleriez-vous en priorité ? (facultatif)</label>
+      <input type="text" id="amelioration">
+    </div>
+
+    <div class="field">
+      <label>Recommanderiez-vous la plateforme à un ami dans la même situation ?</label>
+      <div class="radio-row">
+        <label class="chk"><input type="radio" name="recommande" value="oui"> Oui</label>
+        <label class="chk"><input type="radio" name="recommande" value="non"> Non</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Pourquoi ? (facultatif)</label>
+      <input type="text" id="recommandePourquoi">
+    </div>
+
+    <button class="btn" type="submit">Envoyer mon avis</button>
+    <div class="msg" id="feedbackMsg"></div>
+  </form>
+
+  <div id="alreadySent" class="already-sent" style="display:none;">
+    <h3 style="margin:0 0 8px;">✓ Merci, votre avis a bien été enregistré !</h3>
+    <p class="sans" style="margin:0; color:var(--ink-soft);">Vous pouvez modifier votre réponse en renvoyant le formulaire.</p>
+  </div>
+</div>
+
+<script src="supabase-js.min.js"></script>
+<script src="supabaseClient.js"></script>
+<script>
+let currentUser = null;
+let currentPrenom = "Anonyme";
+let selectedFacilite = null;
+let existingFeedbackId = null;
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  currentUser = session ? session.user : null;
+
+  if (!currentUser) {
+    document.getElementById("loginNotice").style.display = "block";
+    return;
+  }
+
+  const { data: profile } = await db.from("profiles").select("prenom").eq("id", currentUser.id).single();
+  currentPrenom = profile?.prenom || "Anonyme";
+
+  document.getElementById("feedbackForm").style.display = "block";
+
+  const { data: existing } = await db.from("feedbacks").select("*").eq("user_id", currentUser.id).maybeSingle();
+  if (existing) {
+    existingFeedbackId = existing.id;
+    document.getElementById("commentTrouve").value = existing.comment_trouve || "";
+    document.getElementById("difficulte").value = existing.difficulte || "";
+    document.getElementById("amelioration").value = existing.amelioration || "";
+    document.getElementById("recommandePourquoi").value = existing.recommande_pourquoi || "";
+    if (existing.note_facilite) selectRating(existing.note_facilite);
+    if (existing.opportunites_pertinentes) {
+      const r = document.querySelector(`input[name="pertinent"][value="${existing.opportunites_pertinentes}"]`);
+      if (r) r.checked = true;
+    }
+    if (existing.fonctionnalite_utile) {
+      const r = document.querySelector(`input[name="fonctionnalite"][value="${existing.fonctionnalite_utile}"]`);
+      if (r) r.checked = true;
+    }
+    if (existing.recommande !== null) {
+      const r = document.querySelector(`input[name="recommande"][value="${existing.recommande ? "oui" : "non"}"]`);
+      if (r) r.checked = true;
+    }
+  }
+}
+
+function selectRating(val) {
+  selectedFacilite = val;
+  document.querySelectorAll("#raterFacilite .rating-btn").forEach(b => {
+    b.classList.toggle("active", parseInt(b.dataset.val, 10) === val);
+  });
+}
+
+document.getElementById("raterFacilite").addEventListener("click", (e) => {
+  const btn = e.target.closest(".rating-btn");
+  if (btn) {
+    selectRating(parseInt(btn.dataset.val, 10));
+  }
+});
+
+document.getElementById("feedbackForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("feedbackMsg");
+
+  const pertinent = document.querySelector('input[name="pertinent"]:checked')?.value || null;
+  const fonctionnalite = document.querySelector('input[name="fonctionnalite"]:checked')?.value || null;
+  const recommandeVal = document.querySelector('input[name="recommande"]:checked')?.value || null;
+
+  const payload = {
+    user_id: currentUser.id,
+    auteur_prenom: currentPrenom,
+    note_facilite: selectedFacilite,
+    opportunites_pertinentes: pertinent,
+    fonctionnalite_utile: fonctionnalite,
+    difficulte: document.getElementById("difficulte").value.trim() || null,
+    amelioration: document.getElementById("amelioration").value.trim() || null,
+    recommande: recommandeVal === "oui" ? true : (recommandeVal === "non" ? false : null),
+    recommande_pourquoi: document.getElementById("recommandePourquoi").value.trim() || null,
+    comment_trouve: document.getElementById("commentTrouve").value.trim() || null,
+  };
+
+  let error;
+  if (existingFeedbackId) {
+    ({ error } = await db.from("feedbacks").update(payload).eq("id", existingFeedbackId));
+  } else {
+    ({ error } = await db.from("feedbacks").insert(payload));
+  }
+
+  if (error) {
+    msg.textContent = "Erreur : " + error.message;
+    msg.className = "msg error";
+    return;
+  }
+
+  document.getElementById("feedbackForm").style.display = "none";
+  document.getElementById("alreadySent").style.display = "block";
+});
+
+init();
+</script>
+<script>
+(function(){
+  const zone = document.getElementById("ambientParticles");
+  if (!zone) return;
+  const n = 10;
+  for (let i = 0; i < n; i++) {
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    const size = 3 + Math.random() * 4;
+    dot.style.width = size + "px";
+    dot.style.height = size + "px";
+    dot.style.left = Math.random() * 100 + "%";
+    dot.style.animationDuration = (14 + Math.random() * 12) + "s";
+    dot.style.animationDelay = (Math.random() * 14) + "s";
+    zone.appendChild(dot);
+  }
+})();
+</script>
+<script>
+document.querySelectorAll(".hamburger").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const nav = btn.closest("header").querySelector("nav.sans");
+    if (nav) nav.classList.toggle("open");
+  });
+});
+</script>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-about">
+      <h4>À propos</h4>
+      <p>
+        <b>Giveback Groupe 10</b> est un projet réalisé par des étudiants du programme
+        <b>Mastercard Foundation Scholars</b> à l'<b>Institut 2iE</b>, dans le cadre du
+        <b>Give Back Activity</b>. La plateforme centralise des opportunités (bourses,
+        formations, stages, concours) provenant de nombreuses institutions africaines et
+        internationales, et propose un accompagnement par des mentors bénévoles.
+      </p>
+      <p style="color:#9FB3AC; font-size:11.5px;">
+        Ce projet est mené par des étudiants dans le cadre de leur formation — il ne constitue
+        pas un service officiel de l'Institut 2iE ni de la Fondation Mastercard.
+      </p>
+    </div>
+    <div class="footer-links">
+      <h4>Navigation</h4>
+      <a href="index.html">Opportunités</a>
+      <a href="mentors.html">Mentors</a>
+      <a href="formations.html">Mini-formations</a>
+      <a href="communaute.html">Communauté</a>
+      <a href="tutoriel.html">Comment ça marche</a>
+      <a href="confidentialite.html">Confidentialité</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    © 2026 Giveback Groupe 10 — Give Back Activity, Mastercard Foundation × Institut 2iE
+  </div>
+</footer>
+
+</body>
+</html>
