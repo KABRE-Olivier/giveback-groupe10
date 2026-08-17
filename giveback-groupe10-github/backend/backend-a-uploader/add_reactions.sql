@@ -1,0 +1,8 @@
+-- =========================================================
+-- Supprime le message de bienvenue fictif (ancien nom "Voie"),
+-- et ajoute un type de réaction (au lieu d'un simple like).
+-- =========================================================
+
+delete from posts where auteur_prenom in ('Équipe Voie', 'Équipe Giveback Groupe 10');
+
+alter table likes add column if not exists type text default 'coeur';
